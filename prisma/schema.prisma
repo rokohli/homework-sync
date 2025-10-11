@@ -1,0 +1,37 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Assignment {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  course    String?
+  dueAt     DateTime
+  url       String?
+  source    String   // "canvas", "google_classroom", "manual", etc.
+  status    String   @default("todo") // "todo", "in_progress", "done", "completed"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, dueAt])
+}
+
+model UserToken {
+  id           String    @id @default(cuid())
+  userId       String
+  platform     String    // "canvas", "google_classroom"
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, platform])
+}
