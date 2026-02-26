@@ -138,10 +138,13 @@ export default function HomeworkSync() {
       // For canvas, just mark as connected (no OAuth needed for ICS import)
       if (src === "canvas") {
         setConnected((c) => ({ ...c, [src]: true }));
-      } else {
+      } else if(src === "google_classroom"){
         // Google Classroom still uses OAuth
         window.location.href = `/api/auth/${src}`;
+      } else {
+        await syncPlatform(src);
       }
+
     } else {
       setConnected((c) => ({ ...c, [src]: true }));
     }
@@ -150,10 +153,10 @@ export default function HomeworkSync() {
   async function syncPlatform(src: Source) {
     setSyncing(true);
     try {
-      const res = await fetch("/api/sync", {
+      const res = await fetch( `/api/sync/${src}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform: src }),
+        body: JSON.stringify({ courseInstanceId: 202144, }), // for PrairieLearn, can be ignored by others
       });
 
       const data = await res.json();
@@ -267,6 +270,7 @@ export default function HomeworkSync() {
             dueAt: e.dtstart,
             course: e.course,
             url: e.url,
+            source: "canvas",
             status: "todo",
           }),
         });
@@ -705,7 +709,7 @@ function AddModal({
             />
           </div>
           <div>
-            <label className="block text-xs mb-1">Course (optional)</label>
+            <label className="block text-xs mb-1">Course</label>
             <input
               value={course}
               onChange={(e) => setCourse(e.target.value)}
@@ -821,7 +825,42 @@ function dotColor(status: Assignment["status"]) {
       return "bg-green-500";
   }
 }
+function icsToIso(v: string): string {
+  const raw = v.replace(/^(?:DTSTART[^:]*:)/, "").trim();
 
+  // Handle YYYYMMDD (all-day)
+  if (/^\d{8}$/.test(raw)) {
+    const y = raw.slice(0, 4);
+    const m = raw.slice(4, 6);
+    const d = raw.slice(6, 8);
+    return new Date(`${y}-${m}-${d}T00:00:00`).toISOString();
+  }
+
+  // Handle YYYYMMDDTHHMM or YYYYMMDDTHHMMSS (Z optional)
+  const match = raw.match(
+    /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?(Z)?$/
+  );
+
+  if (!match) {
+    console.log("FAILED TO PARSE DTSTART:", raw); // DEBUG
+    return "";
+  }
+
+  const [, Y, Mo, D, H, Mi, Se = "00", z] = match;
+
+  if (z) {
+    return new Date(`${Y}-${Mo}-${D}T${H}:${Mi}:${Se}Z`).toISOString();
+  }
+
+  return new Date(
+    Number(Y),
+    Number(Mo) - 1,
+    Number(D),
+    Number(H),
+    Number(Mi),
+    Number(Se)
+  ).toISOString();
+}
 function parseICS(raw: string) {
   const lines = raw.replace(/\r\n/g, "\n").split("\n");
   const unfolded: string[] = [];
@@ -839,26 +878,9 @@ function parseICS(raw: string) {
     if (l.startsWith("BEGIN:VEVENT")) cur = {};
     else if (l.startsWith("END:VEVENT")) {
       if (cur && cur.DTSTART && cur.SUMMARY) {
-        const v = cur.DTSTART as string;
-        let iso = "";
-        if (/Z$/.test(v)) iso = new Date(v.replace(/^(?:DTSTART[^:]*:)/, "")).toISOString();
-        else {
-          const dt = v.replace(/^(?:DTSTART[^:]*:)/, "");
-          const y = dt.slice(0, 4),
-            m = dt.slice(4, 6),
-            d = dt.slice(6, 8),
-            h = dt.slice(9, 11) || "00",
-            min = dt.slice(11, 13) || "00",
-            s = dt.slice(13, 15) || "00";
-          iso = new Date(
-            Number(y),
-            Number(m) - 1,
-            Number(d),
-            Number(h),
-            Number(min),
-            Number(s)
-          ).toISOString();
-        }
+        const v = String(cur.DTSTART);
+        const iso = icsToIso(v);
+        if (!iso) continue;
         const sum = String(cur.SUMMARY).replace(/^SUMMARY:/, "");
         const url = cur.URL ? String(cur.URL).replace(/^URL:/, "") : undefined;
         events.push({ summary: sum, dtstart: iso, url });

@@ -1,11 +1,11 @@
 // prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Assignment {
@@ -13,10 +13,12 @@ model Assignment {
   userId    String
   title     String
   course    String?
-  dueAt     DateTime
+  dueAt     DateTime?
   url       String?
   source    String   // "canvas", "google_classroom", "manual", etc.
   status    String   @default("todo") // "todo", "in_progress", "done", "completed"
+  externalId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

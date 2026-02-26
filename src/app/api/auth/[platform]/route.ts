@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import db from "@/lib/prisma";
+import { prisma as db } from "@/lib/prisma";
+
 
 export async function GET(
   request: Request,
@@ -12,13 +13,6 @@ export async function GET(
 
   if (!code) {
     // Redirect to OAuth provider
-    /*if (platform === "canvas") {
-      const canvasDomain = process.env.CANVAS_DOMAIN || "canvas.instructure.com";
-      const clientId = process.env.CANVAS_CLIENT_ID;
-      const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/canvas`;
-      
-      const authUrl = `https://${canvasDomain}/login/oauth2/auth?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}`;
-      return NextResponse.redirect(authUrl);*/
     if (platform === "google_classroom") {
       const clientId = process.env.GOOGLE_CLIENT_ID;
       const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/google_classroom`;
@@ -32,21 +26,6 @@ export async function GET(
   // Exchange code for token
   try {
     let tokenData;
-
-    /*if (platform === "canvas") {
-      const canvasDomain = process.env.CANVAS_DOMAIN || "canvas.instructure.com";
-      const tokenRes = await fetch(`https://${canvasDomain}/login/oauth2/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          grant_type: "authorization_code",
-          client_id: process.env.CANVAS_CLIENT_ID,
-          client_secret: process.env.CANVAS_CLIENT_SECRET,
-          redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/canvas`,
-          code,
-        }),
-      });
-      tokenData = await tokenRes.json();*/
     if (platform === "google_classroom") {
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
